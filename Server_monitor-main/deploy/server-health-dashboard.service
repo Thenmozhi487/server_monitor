@@ -1,0 +1,43 @@
+[Unit]
+Description=Server Health Dashboard Telemetry Service
+Documentation=https://github.com/example/server-health-dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/server-health-dashboard
+Environment="PATH=/opt/server-health-dashboard/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="CONFIG_PATH=/opt/server-health-dashboard/config.yaml"
+
+# CRITICAL CONCURRENCY ARCHITECTURE REQUIREMENT:
+# --workers MUST be set to 1.
+# Rationale: The background metric collector runs as an in-process daemon thread.
+# Spawning multiple worker processes without inter-process coordination would create
+# duplicate metric sampling, race conditions in the alert debounce state machine,
+# and unnecessary SQLite write lock contention. Thread concurrency (--threads 4)
+# handles concurrent HTTP web requests without blocking the collector.
+ExecStart=/opt/server-health-dashboard/venv/bin/gunicorn \
+    --workers 1 \
+    --threads 4 \
+    --bind 127.0.0.1:5000 \
+    --access-logfile /var/log/server-health-dashboard/access.log \
+    --error-logfile /var/log/server-health-dashboard/error.log \
+    --capture-output \
+    app:app
+
+Restart=always
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Security Hardening Sandbox
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

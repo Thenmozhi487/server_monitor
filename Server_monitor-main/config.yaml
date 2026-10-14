@@ -1,0 +1,35 @@
+# Server Health Dashboard Configuration
+
+server:
+  host: "127.0.0.1"
+  port: 5000
+  debug: false
+
+database:
+  path: "server_health.db"
+
+collector:
+  # Sampling interval in seconds (default 5)
+  sample_interval_seconds: 5
+  # Disk path to monitor (default "/" on Linux)
+  disk_path: "/"
+  # Retention period for metrics in days (default 7)
+  retention_days: 7
+  # How often to run retention cleanup (seconds, default 3600 = 1 hour)
+  retention_interval_seconds: 3600
+
+alerts:
+  # Number of consecutive breach samples required to trigger an alert
+  debounce_samples: 3
+  # Hysteresis points below threshold required to resolve an alert
+  hysteresis_points: 5
+  thresholds:
+    cpu:
+      warning: 70.0
+      critical: 90.0
+    memory:
+      warning: 75.0
+      critical: 90.0
+    disk:
+      warning: 80.0
+      critical: 95.0

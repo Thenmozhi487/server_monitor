@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Testing & caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime SQLite databases & locks
+*.db
+*.db-wal
+*.db-shm
+collector.lock
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/

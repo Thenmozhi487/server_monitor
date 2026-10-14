@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-Time Linux Server Health Dashboard with psutil telemetry, configurable debounce alerts, and trend charts.">
+    <title>Server Health Dashboard | Real-Time Telemetry</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Locally vendored Chart.js (No external CDN) -->
+    <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Sticky Disconnected Banner -->
+    <div id="disconnected-banner" class="disconnected-banner" role="alert" aria-live="assertive">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Disconnected from server backend. Retrying connection...</span>
+    </div>
+
+    <div class="container">
+        <!-- Dashboard Header -->
+        <header>
+            <div class="header-title-group">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 10h16c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2zm2-7h2v2H6V7zm0 10h2v2H6v-2zm12-10h-2v2h2V7zm0 10h-2v2h2v-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Server Health Dashboard</h1>
+                    <div class="subtitle">Continuous Linux System Telemetry & Alert State Machine</div>
+                </div>
+            </div>
+
+            <div class="header-meta">
+                <div id="connection-status-pill" class="live-indicator">
+                    <span class="pulse-dot"></span>
+                    <span id="connection-status-text">LIVE MONITORING</span>
+                </div>
+                <div class="current-time" id="current-clock">--:--:--</div>
+            </div>
+        </header>
+
+        <!-- Dynamic Alert Banner Container -->
+        <section id="alert-banner-container" aria-label="Active System Alerts">
+            <div id="alert-banner-card" class="alert-banner-card healthy">
+                <div class="alert-banner-left">
+                    <div class="alert-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="alert-title" id="alert-banner-title">System Status: All Systems Operational</div>
+                        <div class="alert-subtitle" id="alert-banner-desc">No active threshold alerts. Telemetry sampling continuous.</div>
+                    </div>
+                </div>
+                <div class="alert-items-list" id="active-alert-badges"></div>
+            </div>
+        </section>
+
+        <!-- Top Metric Cards Grid -->
+        <main>
+            <div class="cards-grid">
+                <!-- CPU Usage Card -->
+                <div class="metric-card" id="card-cpu">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                                </svg>
+                            </div>
+                            <span class="card-title">CPU Utilization</span>
+                        </div>
+                        <span id="status-pill-cpu" class="status-pill normal">Normal</span>
+                    </div>
+                    <div class="card-value-display">
+                        <span class="card-big-value" id="val-cpu">--</span>
+                        <span class="card-unit">%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill normal" id="bar-cpu"></div>
+                    </div>
+                    <div class="card-footer">
+                        <span>Warn: <b id="lbl-cpu-warn">70%</b></span>
+                        <span>Crit: <b id="lbl-cpu-crit">90%</b></span>
+                    </div>
+                </div>
+
+                <!-- Memory Usage Card -->
+                <div class="metric-card" id="card-memory">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                                </svg>
+                            </div>
+                            <span class="card-title">Memory (RAM)</span>
+                        </div>
+                        <span id="status-pill-memory" class="status-pill normal">Normal</span>
+                    </div>
+                    <div class="card-value-display">
+                        <span class="card-big-value" id="val-memory">--</span>
+                        <span class="card-unit">%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill normal" id="bar-memory"></div>
+                    </div>
+                    <div class="card-footer">
+                        <span>Warn: <b id="lbl-memory-warn">75%</b></span>
+                        <span>Crit: <b id="lbl-memory-crit">90%</b></span>
+                    </div>
+                </div>
+
+                <!-- Disk Usage Card -->
+                <div class="metric-card" id="card-disk">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                                    <path d="M12 22a10 10 0 0 0 10-10H12v10z"></path>
+                                    <path d="M12 22A10 10 0 1 1 12 2v20z"></path>
+                                </svg>
+                            </div>
+                            <span class="card-title">Disk Storage</span>
+                        </div>
+                        <span id="status-pill-disk" class="status-pill normal">Normal</span>
+                    </div>
+                    <div class="card-value-display">
+                        <span class="card-big-value" id="val-disk">--</span>
+                        <span class="card-unit">%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill normal" id="bar-disk"></div>
+                    </div>
+                    <div class="card-footer">
+                        <span>Path: <b id="lbl-disk-path">/</b></span>
+                        <span>Crit: <b id="lbl-disk-crit">95%</b></span>
+                    </div>
+                </div>
+
+                <!-- System Uptime Card -->
+                <div class="metric-card" id="card-uptime">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <span class="card-title">System Uptime</span>
+                        </div>
+                        <span class="status-pill normal">Online</span>
+                    </div>
+                    <div class="uptime-card-text" id="val-uptime">--d --h --m</div>
+                    <div class="card-footer">
+                        <span>Collector: Active</span>
+                        <span id="lbl-sample-interval">Sample: 5s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telemetry Trend Charts Section -->
+            <section class="charts-section" aria-label="Telemetry Charts">
+                <div class="charts-header">
+                    <div class="section-title-group">
+                        <h2>Telemetry Trend Analytics</h2>
+                        <div class="section-subtitle">Real-time time-series telemetry with threshold lines</div>
+                    </div>
+                    <div class="chart-controls">
+                        <button class="time-range-btn active" data-minutes="15" id="btn-range-15">15 Min</button>
+                        <button class="time-range-btn" data-minutes="60" id="btn-range-60">1 Hour</button>
+                        <button class="time-range-btn" data-minutes="1440" id="btn-range-1440">24 Hours</button>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <!-- CPU Chart Card -->
+                    <div class="chart-container-card">
+                        <div class="chart-card-header">
+                            <span class="chart-card-title">CPU Utilization (%)</span>
+                            <div class="chart-legend-badge">
+                                <span><span class="legend-line legend-warn"></span> Warn</span>
+                                <span><span class="legend-line legend-crit"></span> Crit</span>
+                            </div>
+                        </div>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-cpu"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Memory Chart Card -->
+                    <div class="chart-container-card">
+                        <div class="chart-card-header">
+                            <span class="chart-card-title">Memory Utilization (%)</span>
+                            <div class="chart-legend-badge">
+                                <span><span class="legend-line legend-warn"></span> Warn</span>
+                                <span><span class="legend-line legend-crit"></span> Crit</span>
+                            </div>
+                        </div>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-memory"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Disk Chart Card -->
+                    <div class="chart-container-card">
+                        <div class="chart-card-header">
+                            <span class="chart-card-title">Disk Utilization (%)</span>
+                            <div class="chart-legend-badge">
+                                <span><span class="legend-line legend-warn"></span> Warn</span>
+                                <span><span class="legend-line legend-crit"></span> Crit</span>
+                            </div>
+                        </div>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-disk"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alert History Table Section -->
+            <section class="alerts-table-section" aria-label="Alert History Table">
+                <div class="table-header-group">
+                    <h2>Alert Event History</h2>
+                    <span class="section-subtitle">Debounce & hysteresis state transitions</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="alerts-table" id="alerts-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Metric</th>
+                                <th>Level</th>
+                                <th>Trigger Value</th>
+                                <th>Started At</th>
+                                <th>Resolved At</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-table-body">
+                            <tr class="empty-state-row">
+                                <td colspan="8">No alerts recorded. System running smoothly.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+            <span>Server Health Dashboard • Linux Telemetry Suite • Non-blocking Decoupled Collector</span>
+        </footer>
+    </div>
+
+    <!-- Application Dashboard Logic -->
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
